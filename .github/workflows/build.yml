@@ -14,8 +14,10 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: pickkyk2nx_static_analysis_lab
-          SONAR_ORGANIZATION: pickkyk2nx
+        with:
+          args: >
+            -Dsonar.projectKey=pickkyk2nx_static_analysis_lab
+            -Dsonar.organization=pickkyk2nx
