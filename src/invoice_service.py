@@ -20,104 +20,61 @@ class Invoice:
 
 class InvoiceService:
     def __init__(self) -> None:
-        self._coupon_rate: Dict[str, float] = {
-            "WELCOME10": 0.10,
-            "VIP20": 0.20,
-            "STUDENT5": 0.05
+        # Business Rules moved to configuration lookups
+        self._coupon_rates: Dict[str, float] = {
+            "WELCOME10": 0.10, "VIP20": 0.20, "STUDENT5": 0.05
+        }
+        self._tax_rates: Dict[str, float] = {
+            "TH": 0.07, "JP": 0.10, "US": 0.08, "DEFAULT": 0.05
         }
 
-    def _validate(self, inv: Invoice) -> List[str]:
-        problems: List[str] = []
-        if inv is None:
-            problems.append("Invoice is missing")
-            return problems
-        if not inv.invoice_id:
-            problems.append("Missing invoice_id")
-        if not inv.customer_id:
-            problems.append("Missing customer_id")
-        if not inv.items:
-            problems.append("Invoice must contain items")
-        for it in inv.items:
-            if not it.sku:
-                problems.append("Item sku is missing")
-            if it.qty <= 0:
-                problems.append(f"Invalid qty for {it.sku}")
-            if it.unit_price < 0:
-                problems.append(f"Invalid price for {it.sku}")
-            if it.category not in ("book", "food", "electronics", "other"):
-                problems.append(f"Unknown category for {it.sku}")
-        return problems
-
     def compute_total(self, inv: Invoice) -> Tuple[float, List[str]]:
-        warnings: List[str] = []
+        """
+        Calculates total with a Cognitive Complexity < 10.
+        Logic is delegated to specialized private methods.
+        """
         problems = self._validate(inv)
         if problems:
             raise ValueError("; ".join(problems))
 
-        subtotal = 0.0
-        fragile_fee = 0.0
-        for it in inv.items:
-            line = it.unit_price * it.qty
-            subtotal += line
-            if it.fragile:
-                fragile_fee += 5.0 * it.qty
+        warnings: List[str] = []
+        
+        # 1. Base Metrics
+        subtotal = sum(item.unit_price * item.qty for item in inv.items)
+        fragile_fee = sum(5.0 * item.qty for item in inv.items if item.fragile)
 
-        shipping = 0.0
-        if inv.country == "TH":
-            if subtotal < 500:
-                shipping = 60
-            else:
-                shipping = 0
-        elif inv.country == "JP":
-            if subtotal < 4000:
-                shipping = 600
-            else:
-                shipping = 0
-        elif inv.country == "US":
-            if subtotal < 100:
-                shipping = 15
-            elif subtotal < 300:
-                shipping = 8
-            else:
-                shipping = 0
-        else:
-            if subtotal < 200:
-                shipping = 25
-            else:
-                shipping = 0
+        # 2. Variable Components
+        shipping = self._get_shipping(inv.country, subtotal)
+        discount, coupon_warn = self._get_discount(inv, subtotal)
+        
+        if coupon_warn:
+            warnings.append(coupon_warn)
 
-        discount = 0.0
-        if inv.membership == "gold":
-            discount += subtotal * 0.03
-        elif inv.membership == "platinum":
-            discount += subtotal * 0.05
-        else:
-            if subtotal > 3000:
-                discount += 20
+        # 3. Tax and Final Sum
+        tax_rate = self._tax_rates.get(inv.country, self._tax_rates["DEFAULT"])
+        tax = (subtotal - discount) * tax_rate
+        
+        total = max(0.0, subtotal + shipping + fragile_fee + tax - discount)
 
-        if inv.coupon is not None and inv.coupon.strip() != "":
-            code = inv.coupon.strip()
-            if code in self._coupon_rate:
-                discount += subtotal * self._coupon_rate[code]
-            else:
-                warnings.append("Unknown coupon")
-
-        tax = 0.0
-        if inv.country == "TH":
-            tax = (subtotal - discount) * 0.07
-        elif inv.country == "JP":
-            tax = (subtotal - discount) * 0.10
-        elif inv.country == "US":
-            tax = (subtotal - discount) * 0.08
-        else:
-            tax = (subtotal - discount) * 0.05
-
-        total = subtotal + shipping + fragile_fee + tax - discount
-        if total < 0:
-            total = 0
-
+        # 4. Upsell Logic
         if subtotal > 10000 and inv.membership not in ("gold", "platinum"):
             warnings.append("Consider membership upgrade")
 
-        return total, warnings
+        return round(total, 2), warnings
 
+    def _get_shipping(self, country: str, subtotal: float) -> float:
+        """Determines shipping cost based on country-specific thresholds."""
+        if country == "TH":
+            return 60 if subtotal < 500 else 0
+        if country == "JP":
+            return 600 if subtotal < 4000 else 0
+        if country == "US":
+            if subtotal < 100: return 15
+            return 8 if subtotal < 300 else 0
+        
+        return 25 if subtotal < 200 else 0
+
+    def _get_discount(self, inv: Invoice, subtotal: float) -> Tuple[float, Optional[str]]:
+        """Calculates combined membership and coupon discounts."""
+        discount = 0.0
+        warning = None
