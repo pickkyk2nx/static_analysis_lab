@@ -1,20 +1,18 @@
 
-from dataclasses import dataclass 
+from dataclasses import dataclass
 
 from typing import List, Optional, Dict, Tuple
-@dataclass 
 
-class LineItem: 
 
-    sku: str 
-
-    category: str 
-
-    unit_price: float 
-
-    qty: int 
-
+@dataclass
+class LineItem:
+    sku: str
+    category: str
+    unit_price: float
+    qty: int
     fragile: bool = False
+
+
 @dataclass
 class Invoice:
     invoice_id: str
@@ -22,8 +20,8 @@ class Invoice:
     country: str
     membership: str
     coupon: Optional[str]
+    items: List[LineItem]
 
-items: List[LineItem]
 
 class InvoiceService:
     def __init__(self) -> None:
@@ -33,7 +31,7 @@ class InvoiceService:
             "STUDENT5": 0.05
         }
 
-def _validate(self, inv: Invoice) -> List[str]:
+    def _validate(self, inv: Invoice) -> List[str]:
         problems: List[str] = []
         if inv is None:
             problems.append("Invoice is missing")
@@ -55,7 +53,7 @@ def _validate(self, inv: Invoice) -> List[str]:
                 problems.append(f"Unknown category for {it.sku}")
         return problems
 
-def compute_total(self, inv: Invoice) -> Tuple[float, List[str]]:
+    def compute_total(self, inv: Invoice) -> Tuple[float, List[str]]:
         warnings: List[str] = []
         problems = self._validate(inv)
         if problems:
@@ -69,7 +67,7 @@ def compute_total(self, inv: Invoice) -> Tuple[float, List[str]]:
             if it.fragile:
                 fragile_fee += 5.0 * it.qty
 
-shipping = 0.0
+        shipping = 0.0
         if inv.country == "TH":
             if subtotal < 500:
                 shipping = 60
@@ -93,7 +91,7 @@ shipping = 0.0
             else:
                 shipping = 0
 
-discount = 0.0
+        discount = 0.0
         if inv.membership == "gold":
             discount += subtotal * 0.03
         elif inv.membership == "platinum":
@@ -102,14 +100,14 @@ discount = 0.0
             if subtotal > 3000:
                 discount += 20
 
-if inv.coupon is not None and inv.coupon.strip() != "":
+        if inv.coupon is not None and inv.coupon.strip() != "":
             code = inv.coupon.strip()
             if code in self._coupon_rate:
                 discount += subtotal * self._coupon_rate[code]
             else:
                 warnings.append("Unknown coupon")
 
-tax = 0.0
+        tax = 0.0
         if inv.country == "TH":
             tax = (subtotal - discount) * 0.07
         elif inv.country == "JP":

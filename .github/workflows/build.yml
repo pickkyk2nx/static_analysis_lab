@@ -17,3 +17,5 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: pickkyk2nx_static_analysis_lab
+          SONAR_ORGANIZATION: pickkyk2nx
